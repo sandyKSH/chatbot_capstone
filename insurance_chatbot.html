@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #open-chatbot {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 63px;
+            height: 63px;
+            border-radius: 50%;
+            background: url('static/cute_bot.png') no-repeat center;
+            background-size: contain;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+        }
+        #open-chatbot:hover {
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+        }
+        #open-chatbot:active {
+            transform: scale(0.95);
+        }
+        #chatbot {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 350px;
+            height: 480px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            display: none;
+            flex-direction: column;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        #chatbot.open {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0);
+        }
+        #chatbot-header {
+            background-color: #87CEEB;
+            color: white;
+            padding: 7px;
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            height: 28px;
+        }
+        #chatbot-header img {
+            height: 45px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        #chatbot-header .title {
+            flex: 1;
+            text-align: left;
+            font-size: 16px;
+            margin-left: -3px;
+        }
+        #chatbot-header button {
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+        #chatbot-header button svg {
+            fill: white;
+            width: 24px;
+            height: 24px;
+        }
+        #chatbot-messages {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+            font-size: 14px;
+        }
+        #chatbot-messages::-webkit-scrollbar {
+            width: 8px;
+        }
+        #chatbot-messages::-webkit-scrollbar-thumb {
+            background: #87CEEB;
+            border-radius: 5px;
+        }
+        #chatbot-messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        #chatbot-messages .message {
+            margin: 10px 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .user-message {
+            align-items: flex-end;
+        }
+        .user-message .message-content {
+            background-color: #87CEEB;
+            color: white;
+            align-self: flex-end;
+            border-radius: 15px 15px 0 15px; /* 오른쪽 아래만 각지게 */
+            padding: 10px;
+            max-width: 80%;
+            margin-top: 5px; /* 말풍선과 라벨 간의 간격 조정 */
+        }
+        .bot-message {
+            align-items: flex-start;
+        }
+        .bot-message .message-content {
+            background-color: #f1f1f1;
+            border-radius: 15px 15px 15px 0; /* 왼쪽 아래만 각지게 */
+            padding: 10px;
+            max-width: 100%;
+            margin-top: 5px; /* 말풍선과 라벨 간의 간격 조정 */
+        }
+        #chatbot-input {
+            display: flex;
+            padding: 5px;
+            border-top: 1px solid #ccc;
+        }
+        #chatbot-input textarea {
+            flex: 1;
+            padding: 10px;
+            resize: none;
+            height: auto;
+            min-height: 30px;
+            font-weight: bold;
+            font-size: 14px;
+            font-family: Arial, sans-serif;
+            border-radius: 5px;
+            border: none; /* 테두리 제거 */
+        }
+        #chatbot-input textarea:focus {
+            outline: none; /* 포커스 시 테두리 제거 */
+        }
+        #chatbot-input textarea::-webkit-scrollbar {
+            width: 8px; /* 스크롤 두께 줄임 */
+        }
+        #chatbot-input textarea::-webkit-scrollbar-thumb {
+            background: #87CEEB;
+            border-radius: 5px;
+        }
+        #chatbot-input textarea::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        #chatbot-input button {
+            padding: 10px 3px;
+            border: none;
+            cursor: pointer;
+            background: none;
+            margin-left: 0px;
+        }
+        #chatbot-input button svg {
+            fill: gray;
+            transition: fill 0.3s ease;
+        }
+        #chatbot-input button.active svg {
+            fill: #87CEEB;
+        }
+        .loading-dots {
+            display: inline-block;
+            margin-top: 15px;
+            margin-left: 10px;
+        }
+        .loading-dots span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            margin-right: 4px;
+            background-color: #ccc;
+            border-radius: 50%;
+            animation: blink 1.4s infinite both;
+        }
+        .loading-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .loading-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        @keyframes blink {
+            0%, 80%, 100% {
+                opacity: 0;
+            }
+            40% {
+                opacity: 1;
+            }
+        }
+        #intro-bubble {
+            position: fixed;
+            bottom: 40px;
+            right: 95px;
+            background-color: white;
+            color: #20B2AA; /* 청록색 */
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+        #intro-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            right: 10px;
+            border-width: 10px;
+            border-style: solid;
+            border-color: transparent transparent white transparent;
+        }
+        .bot-message img {
+            width: 35px !important;
+            margin-right: 1px !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="intro-bubble">보험 AI 챗봇입니다</div>
+    <button id="open-chatbot"></button>
+    <div id="chatbot">
+        <div id="chatbot-header">
+            <img src="static/cute_bot_pure.png" alt="AI Chatbot Logo">
+            <div class="title">보험 AI 챗봇</div>
+            <button id="close-chatbot">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
+        <div id="chatbot-messages"></div>
+        <div id="chatbot-input">
+            <textarea id="user-input" placeholder="메세지를 입력해보세요"></textarea>
+            <button id="send-message">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M2 3.5l19.5 8.5L2 20.5V13l15.5-1.5L2 10V3.5z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <script>        
+        var firstOpen = true;
+
+        document.getElementById('open-chatbot').addEventListener('click', function() {
+            var chatbot = document.getElementById('chatbot');
+            chatbot.classList.add('open');
+            this.style.opacity = '0';
+            setTimeout(() => { this.style.display = 'none'; }, 300); // Delay hiding the button to allow for animation
+            if (firstOpen) {
+                var botMessageElement = document.createElement('div');
+                botMessageElement.className = 'message bot-message';
+                var botLabelContainer = document.createElement('div');
+                botLabelContainer.style.display = 'flex';
+                botLabelContainer.style.alignItems = 'center';
+                var botIcon = document.createElement('img');
+                botIcon.src = 'static/cute_bot_pure.png';
+                botIcon.style.width = '30px'; /* 이미지 크기 조정 */
+                botIcon.style.marginRight = '5px';
+                var botLabel = document.createElement('div');
+                botLabel.className = 'message-label';
+                botLabel.textContent = 'AI';
+                botLabelContainer.appendChild(botIcon);
+                botLabelContainer.appendChild(botLabel);
+                botMessageElement.appendChild(botLabelContainer);
+                var botText = document.createElement('div');
+                botText.className = 'message-content';
+                botText.textContent = "무엇이 궁금하신가요?";
+                botMessageElement.appendChild(botText);
+                document.getElementById('chatbot-messages').appendChild(botMessageElement);
+                firstOpen = false;
+            }
+        });
+
+        document.getElementById('close-chatbot').addEventListener('click', function() {
+            var chatbot = document.getElementById('chatbot');
+            chatbot.classList.remove('open');
+            document.getElementById('open-chatbot').style.display = 'block';
+            setTimeout(() => {
+                document.getElementById('open-chatbot').style.opacity = '1';
+            }, 100); // 복귀 속도 더 빠르게 조정
+        });
+
+        document.getElementById('user-input').addEventListener('input', function() {
+            var sendMessageButton = document.getElementById('send-message');
+            if (this.value.trim() !== '') {
+                sendMessageButton.classList.add('active');
+            } else {
+                sendMessageButton.classList.remove('active');
+            }
+        });
+
+        document.getElementById('user-input').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        });
+
+        document.getElementById('send-message').addEventListener('click', function() {
+            sendMessage();
+        });
+
+        function sendMessage() {
+            var userInput = document.getElementById('user-input').value.trim();
+            if (userInput !== '') {
+                var messages = document.getElementById('chatbot-messages');
+
+                // 사용자 메시지 생성
+                var userMessageElement = document.createElement('div');
+                userMessageElement.className = 'message user-message';
+                var userLabel = document.createElement('div');
+                userLabel.className = 'message-label';
+                userLabel.textContent = '나';
+                userMessageElement.appendChild(userLabel);
+                var userText = document.createElement('div');
+                userText.className = 'message-content';
+                userText.textContent = userInput;
+                userMessageElement.appendChild(userText);
+                messages.appendChild(userMessageElement);
+
+                messages.scrollTop = messages.scrollHeight; // 자동 스크롤
+
+                // 로딩 애니메이션 추가
+                var loadingMessageElement = document.createElement('div');
+                loadingMessageElement.className = 'message bot-message';
+                var loadingDots = document.createElement('div');
+                loadingDots.className = 'loading-dots';
+                loadingDots.innerHTML = '<span></span><span></span><span></span>';
+                loadingMessageElement.appendChild(loadingDots);
+                messages.appendChild(loadingMessageElement);
+                messages.scrollTop = messages.scrollHeight; // 자동 스크롤
+
+                fetch('http://127.0.0.1:5000/insurance_chatbot', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({message: userInput})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    messages.removeChild(loadingMessageElement); // 로딩 애니메이션 제거
+                    var botMessageElement = document.createElement('div');
+                    botMessageElement.className = 'message bot-message';
+                    var botLabelContainer = document.createElement('div');
+                    botLabelContainer.style.display = 'flex';
+                    botLabelContainer.style.alignItems = 'center';
+                    var botIcon = document.createElement('img');
+                    botIcon.src = 'static/cute_bot_pure.png';
+                    botIcon.style.width = '35px'; /* 이미지 크기 조정 */
+                    botIcon.style.marginRight = '3px';
+                    var botLabel = document.createElement('div');
+                    botLabel.className = 'message-label';
+                    botLabel.textContent = 'AI';
+                    botLabelContainer.appendChild(botIcon);
+                    botLabelContainer.appendChild(botLabel);
+                    botMessageElement.appendChild(botLabelContainer);
+                    var botText = document.createElement('div');
+                    botText.className = 'message-content';
+                    botText.textContent = data.response;
+                    botMessageElement.appendChild(botText);
+                    messages.appendChild(botMessageElement);
+                    messages.scrollTop = messages.scrollHeight; // 자동 스크롤
+                });
+
+                document.getElementById('user-input').value = '';
+                document.getElementById('send-message').classList.remove('active');
+            }
+        }
+
+        // 초기 로드 시 인트로 말풍선 표시
+        window.addEventListener('load', function() {
+            var introBubble = document.getElementById('intro-bubble');
+            introBubble.style.display = 'block';
+            setTimeout(function() {
+                introBubble.style.opacity = '0';
+                setTimeout(function() {
+                    introBubble.style.display = 'none';
+                }, 300); // Fade out duration
+            }, 5000); // 5초 후에 사라지도록 설정
+        });
+    </script>
+</body>
+</html>

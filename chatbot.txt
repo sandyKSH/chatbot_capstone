@@ -1,0 +1,116 @@
+import os
+import openai
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
+import threading
+import re
+
+# OpenAI API 키 설정
+api_key = 'sk-proj-MzsjR41a2MrKJntAYpx6T3BlbkFJ8Qh68nEuQo7ff3x0oZG0'#만료된 것으로 추측.
+openai.api_key = api_key
+
+# TXT 파일을 텍스트로 변환
+# def read_txt(file_path):
+#     with open(file_path, 'r', encoding='utf-8') as file:
+#         return file.read()
+
+def read_txt(file_path):
+    encodings = ['utf-8', 'euc-kr', 'latin1', 'iso-8859-1', 'cp1252']
+    
+    for encoding in encodings:
+        try:
+            with open(file_path, 'r', encoding=encoding) as file:
+                return file.read()
+        except UnicodeDecodeError:
+            continue
+    
+    raise UnicodeDecodeError("모든 인코딩 시도에서 실패했습니다.")
+
+
+# 텍스트 정제
+def clean_text(text):
+    urls = re.findall(r'(https?://\S+)', text)
+    text = re.sub(r'\n+', ' ', text)
+    text = re.sub(r'\r+', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    text += ' ' + ' '.join(urls)
+    return text
+
+# 데이터를 정제하여 결합
+def create_context(txt_data_list, max_tokens=3000):
+    context = ""
+    token_count = 0
+    for txt_data in txt_data_list:
+        context += f"Information: {txt_data}\n\n"
+        token_count += len(txt_data.split())
+        if token_count > max_tokens:
+            context = ' '.join(context.split()[:max_tokens])
+            break
+    return context
+
+# 질문에 대한 답변 생성 함수
+def generate_response(question, context):
+    messages = [
+        {"role": "system", "content": re.sub(" +", " ", "너는 보험 설계 업자, 판매업자, 보상업자 들에게 도움이 되는 챗봇이야. \
+        너가 학습한 txt 파일은 'DB손해보험의 개인용자동차보험약관공동 문서 pdf' 에서 추출한 텍스트 파일이야. \
+        이 문서를 바탕으로 질문에 답해줘.")},
+        {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}\nAnswer:"}
+    ]
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=messages,
+            temperature=0.7,
+            top_p=0.9
+        )
+        answer = response.choices[0].message['content'].strip()
+    except Exception as e:
+        print(f"Error calling OpenAI API: {e}")
+        answer = "답변 생성 중 오류가 발생했습니다."
+
+    return answer
+
+
+# 예시 질문에 대한 응답 생성
+def answer_question(question, txt_data_list):
+    context = create_context(txt_data_list)
+    response = generate_response(question, context)
+    print(response)
+    return response
+
+# 파일 경로 설정
+txt_files_dir = r'C:\Users\SSNPC\Desktop\GF24'
+txt_files = ['extracted_text_pdfplumber.txt','extracted_text_pymupdf.txt', 'extracted_text_pypdf2.txt', 'extraction_all1.txt']  # 읽어올 TXT 파일들
+
+# TXT 데이터 읽기
+txt_data_list = []
+for txt_file in txt_files:
+    file_path = os.path.join(txt_files_dir, txt_file)
+    txt_data = read_txt(file_path)
+    cleaned_txt_data = clean_text(txt_data)
+    txt_data_list.append(cleaned_txt_data)
+
+# Flask 서버 설정
+app = Flask(__name__, static_folder='static')
+CORS(app)
+
+@app.route('/insurance_chatbot', methods=['POST'])
+def chatbot():
+    user_input = request.json.get('message')
+    response = answer_question(user_input, txt_data_list)
+    return jsonify({"response": response})
+
+@app.route('/')
+def serve_html():
+    return send_from_directory('.', 'insurance_chatbot.html')
+
+@app.route('/static/<path:path>')
+def serve_static_file(path):
+    return send_from_directory('static', path)
+
+def run_app():
+    app.run(port=8357, debug=True, use_reloader=False, host='0.0.0.0')
+
+# Flask 서버를 백그라운드에서 실행 (=다른 것을 하면서 동시에 실행 가능)
+thread = threading.Thread(target=run_app)
+thread.start()
